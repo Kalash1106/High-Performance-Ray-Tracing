@@ -1,8 +1,8 @@
 CXX = clang++
 CXXFLAGS = -std=c++17 -I include -c -O3
 
-main: main.o vec3.o color.o ray.o sphere.o hittable_list.o
-	$(CXX) -o main main.o vec3.o color.o ray.o sphere.o hittable_list.o
+main: main.o vec3.o color.o ray.o sphere.o hittable_list.o camera.o
+	$(CXX) -o main main.o vec3.o color.o ray.o sphere.o hittable_list.o camera.o
 
 main.o: src/main.cpp
 	$(CXX) $(CXXFLAGS) src/main.cpp
@@ -21,6 +21,9 @@ sphere.o: src/sphere.cpp src/vec3.cpp src/ray.cpp
 
 hittable_list.o: src/hittable_list.cpp src/vec3.cpp src/ray.cpp
 	$(CXX) $(CXXFLAGS) src/hittable_list.cpp
+
+camera.o: src/camera.cpp src/vec3.cpp src/ray.cpp
+	$(CXX) $(CXXFLAGS) src/camera.cpp
 
 
 .PHONY: clean
