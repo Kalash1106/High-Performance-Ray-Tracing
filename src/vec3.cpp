@@ -1,5 +1,13 @@
 #include "vec3.hpp"
 
+vec3 random_in_unit_sphere() {
+    while (true) {
+        vec3 p = vec3::random(-1,1);
+        if (p.length_squared() >= 1.0) continue;
+        return p;
+    }
+}
+
 double vec3::x() const {
     return e[0];
 }

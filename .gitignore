@@ -1,6 +1,7 @@
 main
 *.ppm
 .vscode/
+.DS_Store
 
 # Prerequisites
 *.d

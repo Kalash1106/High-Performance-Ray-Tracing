@@ -2,6 +2,8 @@
 #include <cmath>
 #include <iostream>
 
+#include "utils.hpp"
+
 class vec3 {
 public:
     double e[3];
@@ -24,13 +26,23 @@ public:
 
     double length() const;
     double length_squared() const;
+
+    inline static vec3 random() {
+        return vec3(random_double(), random_double(), random_double());
+    }
+
+    inline static vec3 random(double min, double max) {
+        return vec3(random_double(min,max), random_double(min,max), random_double(min,max));
+    }
 };
 
+vec3 random_in_unit_sphere();
 
 /*
  * since these are inline functions, they have to be defined and declared at
  * the same time.
  */
+
 inline std::ostream& operator<<(std::ostream &out, const vec3 &v) {
     return out << v.e[0] << ' ' << v.e[1] << ' ' << v.e[2];
 }

@@ -1,5 +1,5 @@
 CXX = clang++
-CXXFLAGS = -std=c++17 -I include -c -O3
+CXXFLAGS = -std=c++17 -I include -c -O3 -g
 
 main: main.o vec3.o color.o ray.o sphere.o hittable_list.o camera.o
 	$(CXX) -o main main.o vec3.o color.o ray.o sphere.o hittable_list.o camera.o
