@@ -4,6 +4,7 @@ main
 .DS_Store
 .venv/
 .mypy_cache/
+*.code-workspace
 
 # Prerequisites
 *.d
