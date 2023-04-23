@@ -1,4 +1,4 @@
-from vec3 import point, vec3
+from vector_implementation import point, vec3
 from ray import ray
 from hit_record import hit_record
 import math
