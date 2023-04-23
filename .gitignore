@@ -2,6 +2,7 @@ main
 *.ppm
 .vscode/
 .DS_Store
+.venv/
 
 # Prerequisites
 *.d
