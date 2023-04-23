@@ -3,6 +3,7 @@ main
 .vscode/
 .DS_Store
 .venv/
+.mypy_cache/
 
 # Prerequisites
 *.d
