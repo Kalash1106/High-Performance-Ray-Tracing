@@ -1,16 +1,9 @@
-import numba as nb
 import numpy as np
-from numba.experimental import jitclass
+from vector_implementation import vec3
 
-spec_color = [
-    ('r', nb.float32),             
-    ('g', nb.float32),  
-    ('b', nb.float32),      
-]
-
-@jitclass(spec_color)
 class color():
-    def __init__(self, r, g , b):
+    #Default color is black
+    def __init__(self, r = 0, g = 0, b = 0):
         self.r = r
         self.g = g
         self.b = b
@@ -32,15 +25,28 @@ class color():
         self.g = self.g * scale
         self.b = self.b * scale
 
-def warm_color_numba():
-    test_1 = color(21, 37, 211)
-    test_2 = color(1, 2, 3)
-    test_1 = test_1 + test_2
-    test_1 = test_1 - test_2
-    test_1 * 2.5
+    def __mul__(self, other):
+        r_new = self.r * other.r
+        g_new = self.g * other.g
+        b_new = self.b * other.b
+        return color(r_new, g_new, b_new)
 
-#Making sure all the functions run atleast once
-warm_color_numba()
+class ray():
+
+    def __init__(self, vec_in : vec3, c_in : color):
+        super().__init__(c_in.r, c_in.g, c_in.b)
+        self.vector = vec_in
+        self.color = c_in
+
+    def modify_color(self, c_new):
+        self.color = c_new
+
+    def modify_direction(self, new_dirn : vec3):
+        self.vector = new_dirn
+
+    def modify_intensity(self, i_in):
+        self.intensity = i_in
+
 
 def clamp(num, min, max):
     if(num >= min and num <= max): 
