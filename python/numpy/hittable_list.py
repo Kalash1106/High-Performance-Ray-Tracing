@@ -60,6 +60,7 @@ def world_hit(
 
     return hit_anything
 
+
 class hittable_list(hittable):
     def __init__(self):
         self.objects: List[hittable] = []
