@@ -5,6 +5,7 @@ main
 .venv/
 .mypy_cache/
 *.code-workspace
+*.prof
 
 # Prerequisites
 *.d
