@@ -29,3 +29,9 @@ class hittable(ABC):
         t_max: np.float64,
     ) -> Tuple[Optional[hit_record], bool]:
         pass
+
+    @abstractmethod
+    def cpphit(
+        self, r: ray, t_min: np.float64, t_max: np.float64, rec: hit_record
+    ) -> bool:
+        pass

@@ -3,7 +3,7 @@ import numpy as np
 
 from ray import ray
 from hittable import hittable, hit_record
-from hittable_list import hittable_list
+from hittable_list import hittable_list, world_hit
 from sphere import sphere
 from color import write_color
 from camera import camera
@@ -11,14 +11,16 @@ from utils import random_in_unit_sphere
 
 from numpy.typing import NDArray
 
+# compile LLVM IR
+world_hit(np.empty((1, 3)), np.empty((1)), np.empty((3)), np.empty((3)), 0.001, np.inf, np.empty((3)), np.empty((3)), np.empty((1)), np.empty((1), dtype=np.uint8)) # type: ignore
 
 def ray_color(r: ray, world: hittable, depth: int) -> NDArray[np.float64]:
     if depth <= 0:
         return np.zeros((3))
 
     rec = hit_record()
-    rec, hit_anything = world.hit(r, np.float64(0.001), np.float64(np.inf))
-    if hit_anything:
+    # rec, hit_anything = world.hit(r, np.float64(0.001), np.float64(np.inf))
+    if world.cpphit(r, np.float64(0.001), np.float64(np.inf), rec):
         target = rec.p + rec.normal + random_in_unit_sphere()  # type: ignore
         return 0.5 * ray_color(ray(rec.p, target - rec.p), world, depth - 1)  # type: ignore
 
@@ -29,15 +31,30 @@ def ray_color(r: ray, world: hittable, depth: int) -> NDArray[np.float64]:
     return (1 - t) * np.ones((3)) + t * np.array([0.5, 0.7, 1.0])
 
 
-# def iray_color(r: ray, world: hittable, depth: int) -> NDArray[np.float64]:
-#     c0: NDArray[np.float64] = np.zeros((3))
-#     for _ in range(depth):
-#         rec = hit_record()
-#         rec, hit_anything = world.hit(r, np.float64(0.001), np.float64(np.inf))
-
-#         c0 *= 0.5 * temp
-#         temp = c0
-
+def jitray_color(r: ray, world, depth: int) -> NDArray[np.float64]:
+    if depth <= 0:
+        return np.zeros((3))
+    
+    rec_p: NDArray[np.float64] = np.empty((3))
+    rec_normal: NDArray[np.float64] = np.empty((3))
+    rec_t_wrapper: NDArray[np.float64] = np.empty((1))
+    rec_front_face_wrapper: NDArray[np.uint8] = np.empty((1), dtype=np.uint8)
+    
+    center_array = []
+    radius_array = []
+    for object in world.objects:
+        center_array.append(object.center)
+        radius_array.append(object.radius)
+    
+    if world_hit(np.array(center_array), np.array(radius_array), r.origin, r.direction, np.float64(0.001), np.float64(np.inf), rec_p, rec_normal, rec_t_wrapper, rec_front_face_wrapper):
+        target = rec_p + rec_normal + random_in_unit_sphere()  # type: ignore
+        return 0.5 * jitray_color(ray(rec_p, target - rec_p), world, depth - 1)  # type: ignore
+    
+    unit_direction: NDArray[np.float64] = r.direction / np.sqrt(
+        np.dot(r.direction, r.direction)
+    )
+    t = 0.5 * (unit_direction[1] + 1.0)
+    return (1 - t) * np.ones((3)) + t * np.array([0.5, 0.7, 1.0])
 
 def main():
     IMAGE_WIDTH: int = 400
@@ -47,11 +64,20 @@ def main():
 
     world = hittable_list()
     world.objects.append(
-        sphere(np.array([0, 0, -1], dtype=np.float64), np.float64(0.5))
-    )
-    world.objects.append(
         sphere(np.array([0, -100.5, -1], dtype=np.float64), np.float64(100.0))
     )
+    world.objects.append(
+        sphere(np.array([0, 0, -1], dtype=np.float64), np.float64(0.5))
+    )
+    # world.objects.append(
+    #     sphere(np.array([1, 0, -1], dtype=np.float64), np.float64(0.5))
+    # )
+    # world.objects.append(
+    #     sphere(np.array([-1, 0, -1], dtype=np.float64), np.float64(0.5))
+    # )
+    
+
+    sp = sphere(np.array([0, 0, -1], dtype=np.float64), np.float64(0.5))
 
     cam = camera()
 
@@ -67,7 +93,7 @@ def main():
                 u = np.float64((i + np.random.uniform(0.0, 1.0)) / (IMAGE_WIDTH - 1))
                 v = np.float64((j + np.random.uniform(0.0, 1.0)) / (IMAGE_HEIGHT - 1))
                 r: ray = cam.get_ray(u, v)
-                pixel_color += ray_color(r, world, MAX_DEPTH)
+                pixel_color += jitray_color(r, world, MAX_DEPTH)
 
             write_color(sys.stdout, pixel_color, SAMPLES_PER_PIXEL)
 
