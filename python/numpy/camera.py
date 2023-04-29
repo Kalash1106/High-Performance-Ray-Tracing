@@ -1,7 +1,24 @@
 import numpy as np
+import numba
 from numpy.typing import NDArray
 
 from ray import ray
+
+
+@numba.njit
+def nbcamera_get_ray_direction(
+    origin: NDArray[np.float64],
+    lower_left_corner: NDArray[np.float64],
+    horizontal: NDArray[np.float64],
+    vertical: NDArray[np.float64],
+    u: np.float64,
+    v: np.float64,
+):
+    return lower_left_corner + u * horizontal + v * vertical - origin
+
+
+# generate LLVM IR
+nbcamera_get_ray_direction(np.empty((3)), np.empty((3)), np.empty((3)), np.empty((3)), 0.5, 0.5)  # type: ignore
 
 
 class camera:

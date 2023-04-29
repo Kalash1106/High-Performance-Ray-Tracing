@@ -8,12 +8,6 @@ from typing import Tuple, Optional
 
 import numba
 
-"""
-1 == True
-0 == False
-"""
-
-
 @numba.njit
 def sphere_hit(
     center: NDArray[np.float64],

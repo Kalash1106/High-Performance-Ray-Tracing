@@ -7,7 +7,7 @@ from hittable import hittable, hit_record
 from hittable_list import hittable_list, world_hit
 from sphere import sphere
 from color import write_color
-from camera import camera
+from camera import camera, nbcamera_get_ray_direction
 from utils import random_in_unit_sphere, mydot, nbrandom_in_unit_sphere
 
 from numpy.typing import NDArray
@@ -69,8 +69,15 @@ def jitray_color(r: ray, world, depth: int) -> NDArray[np.float64]:
     t = 0.5 * (unit_direction[1] + 1.0)
     return (1 - t) * np.ones((3)) + t * np.array([0.5, 0.7, 1.0])
 
+
 @numba.njit
-def fullnbray_color(r_origin: NDArray[np.float64], r_direction: NDArray[np.float64], sp_centers: NDArray[np.float64], sp_radii: NDArray[np.float64], depth: int) -> NDArray[np.float64]:
+def fullnbray_color(
+    r_origin: NDArray[np.float64],
+    r_direction: NDArray[np.float64],
+    sp_centers: NDArray[np.float64],
+    sp_radii: NDArray[np.float64],
+    depth: int,
+) -> NDArray[np.float64]:
     if depth <= 0:
         return np.zeros((3))
 
@@ -106,8 +113,56 @@ def fullnbray_color(r_origin: NDArray[np.float64], r_direction: NDArray[np.float
     t = 0.5 * (unit_direction[1] + 1.0)
     return (1 - t) * np.ones((3)) + t * np.array([0.5, 0.7, 1.0])
 
+
 # generate LLVM IR
 fullnbray_color(np.empty((3)), np.empty((3)), np.empty((1, 3)), np.empty((1)), 1)
+
+
+@numba.njit
+def genimg(
+    IMAGE_HEIGHT: int,
+    IMAGE_WIDTH: int,
+    SAMPLES_PER_PIXEL: int,
+    MAX_DEPTH: int,
+    centers: NDArray[np.float64],
+    radii: NDArray[np.float64],
+    lower_left_corner: NDArray[np.float64],
+    horizontal: NDArray[np.float64],
+    vertical: NDArray[np.float64],
+    result_buffer: NDArray[np.float64],
+):
+    for j in range(IMAGE_HEIGHT - 1, -1, -1):
+        # print(f"Scanlines remaining {j}", file=sys.stderr, flush=True, end="\r")
+        for i in range(IMAGE_WIDTH):
+            pixel_color: NDArray[np.float64] = np.zeros((3))
+            for s in range(SAMPLES_PER_PIXEL):
+                u = np.float64((i + np.random.uniform(0.0, 1.0)) / (IMAGE_WIDTH - 1))
+                v = np.float64((j + np.random.uniform(0.0, 1.0)) / (IMAGE_HEIGHT - 1))
+                r_origin = np.zeros((3))
+                r_direction = nbcamera_get_ray_direction(
+                    r_origin, lower_left_corner, horizontal, vertical, u, v
+                )
+                # pixel_color += jitray_color(r, world, MAX_DEPTH)
+                pixel_color += fullnbray_color(
+                    r_origin, r_direction, centers, radii, MAX_DEPTH
+                )
+
+            result_buffer[i][j] = pixel_color  # TODO: think about this
+
+
+# generate LLVM IR
+genimg(
+    5,
+    5,
+    1,
+    1,
+    np.empty((1, 3)),
+    np.empty((1)),
+    np.empty((3)),
+    np.empty((3)),
+    np.empty((3)),
+    np.empty((5, 5, 3)),
+)
 
 
 def main():
@@ -124,8 +179,8 @@ def main():
         sphere(np.array([0, 0, -1], dtype=np.float64), np.float64(0.5))
     )
 
-    centers = np.array([[0.0, -100.5, -1.0], [0, 0, -1]])
-    radii = np.array([100.0, 0.5])
+    centers = np.array([[0.0, -100.5, -1.0], [1, 0, -1], [-1, 0, -1], [0, 0, -1]])
+    radii = np.array([100.0, 0.5, 0.5, 0.5])
     # world.objects.append(
     #     sphere(np.array([1, 0, -1], dtype=np.float64), np.float64(0.5))
     # )
@@ -141,18 +196,37 @@ def main():
     print(f"{IMAGE_WIDTH} {IMAGE_HEIGHT}")
     print("255")
 
-    for j in range(IMAGE_HEIGHT - 1, -1, -1):
-        # print(f"Scanlines remaining {j}", file=sys.stderr, flush=True, end="\r")
-        for i in range(IMAGE_WIDTH):
-            pixel_color: NDArray[np.float64] = np.zeros((3))
-            for s in range(SAMPLES_PER_PIXEL):
-                u = np.float64((i + np.random.uniform(0.0, 1.0)) / (IMAGE_WIDTH - 1))
-                v = np.float64((j + np.random.uniform(0.0, 1.0)) / (IMAGE_HEIGHT - 1))
-                r: ray = cam.get_ray(u, v)
-                # pixel_color += jitray_color(r, world, MAX_DEPTH)
-                pixel_color += fullnbray_color(r.origin, r.direction, centers, radii, MAX_DEPTH)
+    # for j in range(IMAGE_HEIGHT - 1, -1, -1):
+    #     # print(f"Scanlines remaining {j}", file=sys.stderr, flush=True, end="\r")
+    #     for i in range(IMAGE_WIDTH):
+    #         pixel_color: NDArray[np.float64] = np.zeros((3))
+    #         for s in range(SAMPLES_PER_PIXEL):
+    #             u = np.float64((i + np.random.uniform(0.0, 1.0)) / (IMAGE_WIDTH - 1))
+    #             v = np.float64((j + np.random.uniform(0.0, 1.0)) / (IMAGE_HEIGHT - 1))
+    #             r: ray = cam.get_ray(u, v)
+    #             # pixel_color += jitray_color(r, world, MAX_DEPTH)
+    #             pixel_color += fullnbray_color(
+    #                 r.origin, r.direction, centers, radii, MAX_DEPTH
+    #             )
 
-            write_color(sys.stdout, pixel_color, SAMPLES_PER_PIXEL)
+    #         write_color(sys.stdout, pixel_color, SAMPLES_PER_PIXEL)
+
+    result_buffer = np.empty((IMAGE_WIDTH, IMAGE_HEIGHT, 3))
+    genimg(
+        IMAGE_HEIGHT,
+        IMAGE_WIDTH,
+        SAMPLES_PER_PIXEL,
+        MAX_DEPTH,
+        centers,
+        radii,
+        cam.lower_left_corner,
+        cam.horizontal,
+        cam.vertical,
+        result_buffer,
+    )
+    for j in range(IMAGE_HEIGHT - 1, -1, -1):
+        for i in range(IMAGE_WIDTH):
+            write_color(sys.stdout, result_buffer[i][j], SAMPLES_PER_PIXEL)
 
 
 if __name__ == "__main__":
