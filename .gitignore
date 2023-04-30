@@ -7,6 +7,12 @@ main
 *.code-workspace
 *.prof
 
+# automan
+.automan/
+outputs/
+manuscript/
+config.json
+
 # Prerequisites
 *.d
 
