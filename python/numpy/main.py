@@ -1,4 +1,9 @@
+"""
+Add more documentation here
+"""
 import sys
+import argparse
+import time
 import numpy as np
 import numba
 
@@ -13,7 +18,15 @@ from utils import random_in_unit_sphere, mydot, nbrandom_in_unit_sphere
 from numpy.typing import NDArray
 
 # compile LLVM IR
-world_hit(np.empty((1, 3)), np.empty((1)), np.empty((3)), np.empty((3)), 0.001, np.inf, np.empty((3)), np.empty((3)), np.empty((1)), np.empty((1), dtype=np.uint8))  # type: ignore
+world_hit(np.zeros((1, 3)), np.ones((1)), np.zeros((3)), np.ones((3)), 0.001, np.inf, np.empty((3)), np.empty((3)), np.empty((1)), np.empty((1), dtype=np.uint8))  # type: ignore
+
+
+def create_parser() -> argparse.ArgumentParser:
+    p = argparse.ArgumentParser(description=__doc__)
+    p.add_argument('-s', '--samples', type=int, default=5, help='number of samples per pixel')
+    p.add_argument('-d', '--depth', type=int, default=5, help='max depth of recursion for a ray')
+    p.add_argument('-n', '--nspheres', type=int, default=1, help='number of spheres in the scene')
+    return p
 
 
 def ray_color(r: ray, world: hittable, depth: int) -> NDArray[np.float64]:
@@ -115,7 +128,7 @@ def fullnbray_color(
 
 
 # generate LLVM IR
-fullnbray_color(np.empty((3)), np.empty((3)), np.empty((1, 3)), np.empty((1)), 1)
+fullnbray_color(np.zeros((3)), np.ones((3)), np.zeros((1, 3)), np.ones((1)), 1)
 
 
 @numba.njit
@@ -165,51 +178,57 @@ genimg(
 )
 
 
-def main():
+def main(args):
     IMAGE_WIDTH: int = 400
     IMAGE_HEIGHT: int = (IMAGE_WIDTH // 16) * 9
-    SAMPLES_PER_PIXEL: int = 5
-    MAX_DEPTH: int = 5
+    SAMPLES_PER_PIXEL: int = args.samples
+    MAX_DEPTH: int = args.depth
 
+    if args.nspheres == 3:
+        centers = np.array([[0.0, -100.5, -1.0], [1, 0, -1], [-1, 0, -1], [0, 0, -1]])
+        radii = np.array([100.0, 0.5, 0.5, 0.5])
+    elif args.nspheres == 2:
+        centers = np.array([[0.0, -100.5, -1.0], [-1, 0, -1], [0, 0, -1]])
+        radii = np.array([100.0, 0.5, 0.5])
+    elif args.nspheres == 1:
+        centers = np.array([[0.0, -100.5, -1.0], [0, 0, -1]])
+        radii = np.array([100.0, 0.5])
+    else:
+        raise argparse.ArgumentError(None, 'invalid args')
+    
     world = hittable_list()
+    for i in range(args.nspheres + 1):
+        world.objects.append(sphere(centers[i], radii[i]))
     world.objects.append(
-        sphere(np.array([0, -100.5, -1], dtype=np.float64), np.float64(100.0))
+        sphere(np.array([1, 0, -1], dtype=np.float64), np.float64(0.5))
     )
     world.objects.append(
-        sphere(np.array([0, 0, -1], dtype=np.float64), np.float64(0.5))
+        sphere(np.array([-1, 0, -1], dtype=np.float64), np.float64(0.5))
     )
-
-    centers = np.array([[0.0, -100.5, -1.0], [1, 0, -1], [-1, 0, -1], [0, 0, -1]])
-    radii = np.array([100.0, 0.5, 0.5, 0.5])
-    # world.objects.append(
-    #     sphere(np.array([1, 0, -1], dtype=np.float64), np.float64(0.5))
-    # )
-    # world.objects.append(
-    #     sphere(np.array([-1, 0, -1], dtype=np.float64), np.float64(0.5))
-    # )
 
     sp = sphere(np.array([0, 0, -1], dtype=np.float64), np.float64(0.5))
 
     cam = camera()
 
-    print("P3")
-    print(f"{IMAGE_WIDTH} {IMAGE_HEIGHT}")
-    print("255")
+    # fd = open('out.ppm', 'w')
+    # fd.write("P3\n")
+    # fd.write(f"{IMAGE_WIDTH} {IMAGE_HEIGHT}\n")
+    # fd.write("255\n")
 
     # for j in range(IMAGE_HEIGHT - 1, -1, -1):
-    #     # print(f"Scanlines remaining {j}", file=sys.stderr, flush=True, end="\r")
+    #     print(f"Scanlines remaining {j}", file=sys.stderr, flush=True, end="\r")
     #     for i in range(IMAGE_WIDTH):
     #         pixel_color: NDArray[np.float64] = np.zeros((3))
     #         for s in range(SAMPLES_PER_PIXEL):
     #             u = np.float64((i + np.random.uniform(0.0, 1.0)) / (IMAGE_WIDTH - 1))
     #             v = np.float64((j + np.random.uniform(0.0, 1.0)) / (IMAGE_HEIGHT - 1))
     #             r: ray = cam.get_ray(u, v)
-    #             # pixel_color += jitray_color(r, world, MAX_DEPTH)
-    #             pixel_color += fullnbray_color(
-    #                 r.origin, r.direction, centers, radii, MAX_DEPTH
-    #             )
+    #             pixel_color += ray_color(r, world, MAX_DEPTH)
+    #             # pixel_color += fullnbray_color(
+    #             #     r.origin, r.direction, centers, radii, MAX_DEPTH
+    #             # )
 
-    #         write_color(sys.stdout, pixel_color, SAMPLES_PER_PIXEL)
+    #         write_color(sys.stderr, pixel_color, SAMPLES_PER_PIXEL)
 
     result_buffer = np.empty((IMAGE_WIDTH, IMAGE_HEIGHT, 3))
     genimg(
@@ -224,10 +243,23 @@ def main():
         cam.vertical,
         result_buffer,
     )
-    for j in range(IMAGE_HEIGHT - 1, -1, -1):
-        for i in range(IMAGE_WIDTH):
-            write_color(sys.stdout, result_buffer[i][j], SAMPLES_PER_PIXEL)
+
+    with open(f'out_n{args.nspheres}d{MAX_DEPTH}s{SAMPLES_PER_PIXEL}.ppm', 'w') as fd:
+        fd.write("P3\n")
+        fd.write(f"{IMAGE_WIDTH} {IMAGE_HEIGHT}\n")
+        fd.write("255\n")
+        for j in range(IMAGE_HEIGHT - 1, -1, -1):
+            for i in range(IMAGE_WIDTH):
+                write_color(fd, result_buffer[i][j], SAMPLES_PER_PIXEL)
+    
+    # fd.close()
 
 
 if __name__ == "__main__":
-    main()
+    p = create_parser()
+    args = p.parse_args()
+    print(args, file=sys.stderr)
+
+    s = time.perf_counter()
+    main(args)
+    print(time.perf_counter() - s)
